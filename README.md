@@ -1,8 +1,16 @@
 Scarfs
 ======
+[![pypi](https://img.shields.io/pypi/v/scarfs)](https://pypi.org/project/scarfs/)
+[![build](https://github.com/erikbrinkman/scarfs/actions/workflows/build.yml/badge.svg)](https://github.com/erikbrinkman/scarfs/actions/workflows/build.yml)
 
-Library to find an approximate fixed point for a for a bounded vector valued
+A library to find an approximate fixed point for a for a bounded vector valued
 function.
+
+Installation
+------------
+```bash
+pip install scarfs
+```
 
 Usage
 -----
