@@ -1,9 +1,10 @@
 [tool.poetry]
 name = "scarfs"
-version = "0.1.0"
-description = ""
+version = "0.1.1"
+description = "find approximate fixed points of bounded vector valued functions"
 authors = ["Erik Brinkman <erik.brinkman@gmail.com>"]
 license = "MIT"
+readme = "README.md"
 
 [tool.pytest.ini_options]
 addopts = "--cov scarfs --cov-report term-missing"
