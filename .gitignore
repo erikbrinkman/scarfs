@@ -1,5 +1,14 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-dist/
-lib/
-.coverage
+__pycache__
+/.coverage
+/.pyre
+/.pytest_cache
+/.ruff_cache
+/bin
+/build
+/dist
+/lib
+/lib64
+/out
+/pyvenv.cfg
+/share
+/.venv

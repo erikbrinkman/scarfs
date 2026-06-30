@@ -1,21 +1,26 @@
+"""Test fixed-point solvers."""
+
+import numpy as np
 import pytest
+from numba import cfunc, float64, int64, njit
+
 from scarfs import (
-    simplex_fixed_point,
-    labeled_subsimplex,
     hypercube_fixed_point,
+    labeled_subsimplex,
+    simplex_fixed_point,
     simplotope_fixed_point,
 )
-import numpy as np
-from numba import njit, cfunc, float64, int64
 
 
 @cfunc(float64[:](float64[:]))
 def roll_func(simp: np.ndarray) -> np.ndarray:
+    """Roll the simplex coordinates by one position."""
     return np.roll(simp, 1)
 
 
 @pytest.mark.parametrize("dim", [2, 3, 7])
 def test_roll(dim: int) -> None:
+    """Test the fixed point of a rolling map on the simplex."""
     start = np.random.rand(dim)
     start /= start.sum()
     res = simplex_fixed_point(roll_func, start, 100)
@@ -25,6 +30,7 @@ def test_roll(dim: int) -> None:
 
 
 def test_rps_fixed_point() -> None:
+    """Test the fixed point of a rock-paper-scissors dynamic."""
     start = np.random.rand(3)
     start /= start.sum()
     weights = 1 + 3 * np.random.random(3)
@@ -36,6 +42,7 @@ def test_rps_fixed_point() -> None:
 
     @njit(float64[:](float64[::1]))
     def func(inp: np.ndarray) -> np.ndarray:
+        """Apply one step of the replicator dynamic."""
         inter = np.roll(inp, 1) - weights * np.roll(inp, -1)
         res = np.maximum(0, inter - inter @ inp) + inp
         return res / res.sum()
@@ -50,10 +57,12 @@ _ROT = np.array([[0, 1], [-1, 0]], float)
 
 @cfunc(float64[:](float64[:]))
 def rotate(inp: np.ndarray) -> np.ndarray:
+    """Rotate a point ninety degrees about the hypercube center."""
     return (inp - _TRANS) @ _ROT + _TRANS
 
 
 def test_rotate() -> None:
+    """Test the fixed point of a rotation on the hypercube."""
     start = np.random.rand(2)
     res = hypercube_fixed_point(rotate, start, 100)
     assert np.all(res >= 0)
@@ -63,6 +72,7 @@ def test_rotate() -> None:
 
 @cfunc(float64[:](float64[:]))
 def rolltate(inp: np.ndarray) -> np.ndarray:
+    """Roll the first simplex and rotate the remaining simplotope factors."""
     res = np.empty(7)
     res[:3] = np.roll(inp[:3], 1)
     new_rot = (inp[3::2] - _TRANS) @ _ROT + _TRANS
@@ -72,6 +82,7 @@ def rolltate(inp: np.ndarray) -> np.ndarray:
 
 
 def test_rolltate() -> None:
+    """Test the fixed point of a roll-and-rotate map on a simplotope."""
     runs = np.array([3, 2, 2])
     gaps = np.insert(runs.cumsum(), 0, 0)
     start = np.random.rand(7)
@@ -83,14 +94,16 @@ def test_rolltate() -> None:
 
 @cfunc(int64(float64[:]))
 def invalid(simp: np.ndarray) -> int:
+    """Return an improper label that ignores some simplex vertices."""
     for i in range(simp.size):
-        if simp[i] < 1e-3:
+        if simp[i] < 1e-3:  # noqa: PLR2004
             return i
     return 0
 
 
 @cfunc(int64(float64[:]))
 def valid(simp: np.ndarray) -> int:
+    """Return a proper label for the first positive coordinate."""
     for i in range(simp.size):
         if simp[i] > 0:
             return i
@@ -98,6 +111,7 @@ def valid(simp: np.ndarray) -> int:
 
 
 def test_improper_label_function() -> None:
+    """Test that improper label functions raise an error."""
     start = np.random.rand(4)
     start /= start.sum()
     with pytest.raises(ValueError):

@@ -1,17 +1,24 @@
+"""Test homeomorphisms."""
+
 from itertools import product
-import pytest
-from scarfs import (
-    _hypercube_to_simplex,
-    _simplex_to_hypercube,
-    _simplotope_to_simplex,
-    _simplex_to_simplotope,
-    _add_reduceat,
-)
+from typing import cast
+
 import numpy as np
+import pytest
+from numpy.typing import NDArray
+
+from scarfs._homeomorphisms import (
+    add_reduceat,
+    hypercube_to_simplex,
+    simplex_to_hypercube,
+    simplex_to_simplotope,
+    simplotope_to_simplex,
+)
 
 
 @pytest.mark.parametrize("simplicies", [1, 2, 3, 7])
 def test_reduce_at(simplicies: int) -> None:
+    """Test that the custom reduce-at matches numpy's."""
     for _ in range(100):
         runs = np.random.randint(1, 4, simplicies)
         gaps = np.insert(runs.cumsum(), 0, 0)
@@ -19,11 +26,12 @@ def test_reduce_at(simplicies: int) -> None:
 
         rands = np.arange(n, dtype=float)
         nump = np.add.reduceat(rands, gaps[:-1])
-        cust = _add_reduceat(rands, gaps[1:])
+        cust = add_reduceat(rands, gaps[1:])
         assert np.allclose(nump, cust)
 
 
 def test_known_hypercube_homeomorphisms() -> None:
+    """Test hypercube-simplex maps on known point pairs."""
     for hyper, simp in [
         ([0, 0], [0, 0, 1]),
         ([1, 1], [0.5, 0.5, 0]),
@@ -31,30 +39,33 @@ def test_known_hypercube_homeomorphisms() -> None:
     ]:
         ahyper = np.array(hyper)
         asimp = np.array(simp)
-        assert np.allclose(_hypercube_to_simplex(ahyper), asimp)
-        assert np.allclose(_simplex_to_hypercube(asimp), ahyper)
+        assert np.allclose(hypercube_to_simplex(ahyper), asimp)
+        assert np.allclose(simplex_to_hypercube(asimp), ahyper)
 
 
 def assert_hypercube_to_simplex_homeomorphism(hyper: np.ndarray) -> None:
+    """Assert the hypercube-to-simplex map round-trips for a point."""
     dim = hyper.size
-    simp = _hypercube_to_simplex(hyper)
+    simp = hypercube_to_simplex(hyper)
     assert simp.size == dim + 1
     assert np.all(0 <= simp)
     assert np.isclose(simp.sum(), 1)
-    point = _simplex_to_hypercube(simp)
+    point = simplex_to_hypercube(simp)
     assert np.allclose(hyper, point)
 
 
 def assert_simplex_to_hypercube_homeomorphism(simp: np.ndarray) -> None:
+    """Assert the simplex-to-hypercube map round-trips for a point."""
     dim = simp.size
-    hyper = _simplex_to_hypercube(simp)
+    hyper = simplex_to_hypercube(simp)
     assert hyper.size == dim - 1
     assert np.all(0 <= hyper) and np.all(hyper <= 1)
-    point = _hypercube_to_simplex(hyper)
+    point = hypercube_to_simplex(hyper)
     assert np.allclose(simp, point)
 
 
 def test_edge_hypercube_homeomorphisms() -> None:
+    """Test hypercube-simplex maps on edge and midpoint cases."""
     # edges
     for lpoints in product(*([[0, 1]] * 3)):
         hyper = np.array(lpoints, float)
@@ -73,13 +84,16 @@ def test_edge_hypercube_homeomorphisms() -> None:
 
 @pytest.mark.parametrize("dim", [2, 3, 7])
 def test_random_hypercube_homeomorphism(dim: int) -> None:
+    """Test hypercube-simplex maps on random points."""
     for _ in range(100):
         hyper = np.clip(np.random.rand(dim) * 2 - 0.5, 0, 1)
         assert_hypercube_to_simplex_homeomorphism(hyper)
 
     for _ in range(100):
         simp = np.random.rand(dim)
-        mask = ((np.random.randint(2**dim - 1) + 1) >> np.arange(dim)) % 2
+        mask: NDArray[np.int_] = (
+            (cast(int, np.random.randint(2**dim - 1)) + 1) >> np.arange(dim)
+        ) % 2
         simp *= mask
         simp /= simp.sum()
         assert_simplex_to_hypercube_homeomorphism(simp)
@@ -88,28 +102,31 @@ def test_random_hypercube_homeomorphism(dim: int) -> None:
 def assert_simplotope_to_simplex_homeomorphism(
     tope: np.ndarray, runs: np.ndarray, gaps: np.ndarray
 ) -> None:
-    simp = _simplotope_to_simplex(tope, runs, gaps)
+    """Assert the simplotope-to-simplex map round-trips for a point."""
+    simp = simplotope_to_simplex(tope, runs, gaps)
     assert simp.size == gaps[-1] - runs.size + 1
     assert np.all(0 <= simp)
     assert np.isclose(simp.sum(), 1)
-    point = _simplex_to_simplotope(simp, runs, gaps)
+    point = simplex_to_simplotope(simp, runs, gaps)
     assert np.allclose(tope, point)
 
 
 def assert_simplex_to_simplotope_homeomorphism(
     simp: np.ndarray, runs: np.ndarray, gaps: np.ndarray
 ) -> None:
+    """Assert the simplex-to-simplotope map round-trips for a point."""
     gaps = np.insert(runs.cumsum(), 0, 0)
-    tope = _simplex_to_simplotope(simp, runs, gaps)
+    tope = simplex_to_simplotope(simp, runs, gaps)
     assert tope.size == gaps[-1]
     assert np.all(0 <= tope)
     assert np.allclose(np.add.reduceat(tope, gaps[:-1]), 1)
-    point = _simplotope_to_simplex(tope, runs, gaps)
+    point = simplotope_to_simplex(tope, runs, gaps)
     assert np.allclose(simp, point)
 
 
 @pytest.mark.parametrize("simplicies", [1, 2, 3, 7])
 def test_random_simplotope_homeomorphism(simplicies: int) -> None:
+    """Test simplotope-simplex maps on random points."""
     for _ in range(100):
         runs = np.random.randint(1, 4, simplicies)
         gaps = np.insert(runs.cumsum(), 0, 0)
@@ -120,9 +137,11 @@ def test_random_simplotope_homeomorphism(simplicies: int) -> None:
     for _ in range(100):
         runs = np.random.randint(1, 4, simplicies)
         gaps = np.insert(runs.cumsum(), 0, 0)
-        dim = gaps[-1] - simplicies + 1
+        dim: int = gaps[-1] - simplicies + 1
         simp = np.random.rand(dim)
-        mask = ((np.random.randint(2**dim - 1) + 1) >> np.arange(dim)) % 2
+        mask: NDArray[np.int_] = (
+            (cast(int, np.random.randint(2**dim - 1)) + 1) >> np.arange(dim)
+        ) % 2
         simp *= mask
         simp /= simp.sum()
         assert_simplex_to_simplotope_homeomorphism(simp, runs, gaps)
@@ -130,10 +149,11 @@ def test_random_simplotope_homeomorphism(simplicies: int) -> None:
 
 @pytest.mark.parametrize("simplicies", [1, 2, 3, 7])
 def test_edge_simplotope_homeomorphisms(simplicies: int) -> None:
+    """Test simplotope-simplex maps on edge and midpoint cases."""
     for _ in range(10):
         runs = np.random.randint(1, 4, simplicies)
         gaps = np.insert(runs.cumsum(), 0, 0)
-        simp_dim = gaps[-1] - runs.size + 1
+        simp_dim: int = gaps[-1] - runs.size + 1
 
         # edges
         for topes in product(*(np.eye(v) for v in runs)):
@@ -155,6 +175,7 @@ def test_edge_simplotope_homeomorphisms(simplicies: int) -> None:
 
 @pytest.mark.parametrize("dim", [2, 3, 7])
 def test_hypercube_specialization_of_simplotope(dim: int) -> None:
+    """Test that the hypercube maps specialize the simplotope maps."""
     for _ in range(100):
         runs = np.full(dim, 2)
         gaps = np.arange(0, 2 * dim + 1, 2)
@@ -163,12 +184,12 @@ def test_hypercube_specialization_of_simplotope(dim: int) -> None:
         tope = np.empty(dim * 2)
         tope[::2] = hyper
         tope[1::2] = 1 - hyper
-        hsimp = _hypercube_to_simplex(hyper)
-        tsimp = _simplotope_to_simplex(tope, runs, gaps)
+        hsimp = hypercube_to_simplex(hyper)
+        tsimp = simplotope_to_simplex(tope, runs, gaps)
         assert np.allclose(hsimp, tsimp)
 
         simp = np.random.rand(dim + 1)
         simp /= simp.sum()
-        shyper = _simplex_to_hypercube(simp)
-        stope = _simplex_to_simplotope(simp, runs, gaps)
+        shyper = simplex_to_hypercube(simp)
+        stope = simplex_to_simplotope(simp, runs, gaps)
         assert np.allclose(shyper, stope[::2])
