@@ -1,4 +1,4 @@
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from typing import Literal, Protocol, overload
 
 class _Decorator(Protocol):
@@ -15,9 +15,6 @@ class Scalar(Argument):
 
 float64: Scalar
 int64: Scalar
-uint64: Scalar
-uint8: Scalar
-void: Argument
 
 class _Types:
     def Array(
@@ -34,20 +31,7 @@ def njit(
     /,
     *,
     cache: bool = ...,
-    parallel: bool = ...,
     nogil: bool = ...,
-    fastmath: bool = ...,
     error_model: Literal["numpy", "python"] = ...,
 ) -> _Decorator: ...
-def jit(
-    sig: Type,
-    /,
-    *,
-    cache: bool = ...,
-    parallel: bool = ...,
-    nogil: bool = ...,
-    fastmath: bool = ...,
-    error_model: Literal["numpy", "python"] = ...,
-) -> _Decorator: ...
-def cfunc(sig: Type, /, *, cache: bool = ..., nopython: bool = ...) -> _Decorator: ...
-def prange(start: int) -> Iterable[int]: ...
+def cfunc(sig: Type, /, *, cache: bool = ...) -> _Decorator: ...
