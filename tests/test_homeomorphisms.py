@@ -17,10 +17,10 @@ from scarfs._homeomorphisms import (
 
 
 @pytest.mark.parametrize("simplicies", [1, 2, 3, 7])
-def test_reduce_at(simplicies: int) -> None:
+def test_reduce_at(simplicies: int, rng: np.random.Generator) -> None:
     """Test that the custom reduce-at matches numpy's."""
     for _ in range(100):
-        runs = np.random.randint(1, 4, simplicies)
+        runs = rng.integers(1, 4, simplicies)
         gaps = np.insert(runs.cumsum(), 0, 0)
         n = gaps[-1]
 
@@ -83,16 +83,16 @@ def test_edge_hypercube_homeomorphisms() -> None:
 
 
 @pytest.mark.parametrize("dim", [2, 3, 7])
-def test_random_hypercube_homeomorphism(dim: int) -> None:
+def test_random_hypercube_homeomorphism(dim: int, rng: np.random.Generator) -> None:
     """Test hypercube-simplex maps on random points."""
     for _ in range(100):
-        hyper = np.clip(np.random.rand(dim) * 2 - 0.5, 0, 1)
+        hyper = np.clip(rng.random(dim) * 2 - 0.5, 0, 1)
         assert_hypercube_to_simplex_homeomorphism(hyper)
 
     for _ in range(100):
-        simp = np.random.rand(dim)
+        simp = rng.random(dim)
         mask: NDArray[np.int_] = (
-            (cast(int, np.random.randint(2**dim - 1)) + 1) >> np.arange(dim)
+            (cast(int, rng.integers(2**dim - 1)) + 1) >> np.arange(dim)
         ) % 2
         simp *= mask
         simp /= simp.sum()
@@ -125,22 +125,24 @@ def assert_simplex_to_simplotope_homeomorphism(
 
 
 @pytest.mark.parametrize("simplicies", [1, 2, 3, 7])
-def test_random_simplotope_homeomorphism(simplicies: int) -> None:
+def test_random_simplotope_homeomorphism(
+    simplicies: int, rng: np.random.Generator
+) -> None:
     """Test simplotope-simplex maps on random points."""
     for _ in range(100):
-        runs = np.random.randint(1, 4, simplicies)
+        runs = rng.integers(1, 4, simplicies)
         gaps = np.insert(runs.cumsum(), 0, 0)
-        tope = np.random.rand(gaps[-1])
+        tope = rng.random(int(gaps[-1]))
         tope /= np.add.reduceat(tope, gaps[:-1]).repeat(runs)
         assert_simplotope_to_simplex_homeomorphism(tope, runs, gaps)
 
     for _ in range(100):
-        runs = np.random.randint(1, 4, simplicies)
+        runs = rng.integers(1, 4, simplicies)
         gaps = np.insert(runs.cumsum(), 0, 0)
         dim: int = gaps[-1] - simplicies + 1
-        simp = np.random.rand(dim)
+        simp = rng.random(dim)
         mask: NDArray[np.int_] = (
-            (cast(int, np.random.randint(2**dim - 1)) + 1) >> np.arange(dim)
+            (cast(int, rng.integers(2**dim - 1)) + 1) >> np.arange(dim)
         ) % 2
         simp *= mask
         simp /= simp.sum()
@@ -148,10 +150,12 @@ def test_random_simplotope_homeomorphism(simplicies: int) -> None:
 
 
 @pytest.mark.parametrize("simplicies", [1, 2, 3, 7])
-def test_edge_simplotope_homeomorphisms(simplicies: int) -> None:
+def test_edge_simplotope_homeomorphisms(
+    simplicies: int, rng: np.random.Generator
+) -> None:
     """Test simplotope-simplex maps on edge and midpoint cases."""
     for _ in range(10):
-        runs = np.random.randint(1, 4, simplicies)
+        runs = rng.integers(1, 4, simplicies)
         gaps = np.insert(runs.cumsum(), 0, 0)
         simp_dim: int = gaps[-1] - runs.size + 1
 
@@ -174,13 +178,15 @@ def test_edge_simplotope_homeomorphisms(simplicies: int) -> None:
 
 
 @pytest.mark.parametrize("dim", [2, 3, 7])
-def test_hypercube_specialization_of_simplotope(dim: int) -> None:
+def test_hypercube_specialization_of_simplotope(
+    dim: int, rng: np.random.Generator
+) -> None:
     """Test that the hypercube maps specialize the simplotope maps."""
     for _ in range(100):
         runs = np.full(dim, 2)
         gaps = np.arange(0, 2 * dim + 1, 2)
 
-        hyper = np.random.rand(dim)
+        hyper = rng.random(dim)
         tope = np.empty(dim * 2)
         tope[::2] = hyper
         tope[1::2] = 1 - hyper
@@ -188,7 +194,7 @@ def test_hypercube_specialization_of_simplotope(dim: int) -> None:
         tsimp = simplotope_to_simplex(tope, runs, gaps)
         assert np.allclose(hsimp, tsimp)
 
-        simp = np.random.rand(dim + 1)
+        simp = rng.random(dim + 1)
         simp /= simp.sum()
         shyper = simplex_to_hypercube(simp)
         stope = simplex_to_simplotope(simp, runs, gaps)

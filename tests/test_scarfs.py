@@ -19,9 +19,9 @@ def roll_func(simp: np.ndarray) -> np.ndarray:
 
 
 @pytest.mark.parametrize("dim", [2, 3, 7])
-def test_roll(dim: int) -> None:
+def test_roll(dim: int, rng: np.random.Generator) -> None:
     """Test the fixed point of a rolling map on the simplex."""
-    start = np.random.rand(dim)
+    start = rng.random(dim)
     start /= start.sum()
     res = simplex_fixed_point(roll_func, start, 100)
     assert np.all(res >= 0)
@@ -29,11 +29,11 @@ def test_roll(dim: int) -> None:
     assert np.allclose(res, 1 / dim, atol=0.01)
 
 
-def test_rps_fixed_point() -> None:
+def test_rps_fixed_point(rng: np.random.Generator) -> None:
     """Test the fixed point of a rock-paper-scissors dynamic."""
-    start = np.random.rand(3)
+    start = rng.random(3)
     start /= start.sum()
-    weights = 1 + 3 * np.random.random(3)
+    weights = 1 + 3 * rng.random(3)
     vara, varb, varc = weights
     expected = np.linalg.solve(
         [[0, -vara, 1, 1], [1, 0, -varb, 1], [-varc, 1, 0, 1], [1, 1, 1, 0]],
@@ -61,9 +61,9 @@ def rotate(inp: np.ndarray) -> np.ndarray:
     return (inp - _TRANS) @ _ROT + _TRANS
 
 
-def test_rotate() -> None:
+def test_rotate(rng: np.random.Generator) -> None:
     """Test the fixed point of a rotation on the hypercube."""
-    start = np.random.rand(2)
+    start = rng.random(2)
     res = hypercube_fixed_point(rotate, start, 100)
     assert np.all(res >= 0)
     assert np.all(res <= 1)
@@ -81,11 +81,11 @@ def rolltate(inp: np.ndarray) -> np.ndarray:
     return res
 
 
-def test_rolltate() -> None:
+def test_rolltate(rng: np.random.Generator) -> None:
     """Test the fixed point of a roll-and-rotate map on a simplotope."""
     runs = np.array([3, 2, 2])
     gaps = np.insert(runs.cumsum(), 0, 0)
-    start = np.random.rand(7)
+    start = rng.random(7)
     start /= np.add.reduceat(start, gaps[:-1]).repeat(runs)
     res = simplotope_fixed_point(rolltate, start, runs, 100)
     expected = np.array([1 / 3, 1 / 3, 1 / 3, 0.5, 0.5, 0.5, 0.5])
@@ -110,9 +110,9 @@ def valid(simp: np.ndarray) -> int:
     return 0
 
 
-def test_improper_label_function() -> None:
+def test_improper_label_function(rng: np.random.Generator) -> None:
     """Test that improper label functions raise an error."""
-    start = np.random.rand(4)
+    start = rng.random(4)
     start /= start.sum()
     with pytest.raises(ValueError):
         labeled_subsimplex(invalid, start, 100)
