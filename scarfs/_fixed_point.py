@@ -3,7 +3,7 @@
 from collections.abc import Callable
 
 import numpy as np
-from numba import cfunc, float64, int64, njit
+from numba import float64, int64, njit
 from numpy.typing import NDArray
 
 from ._homeomorphisms import (
@@ -36,11 +36,21 @@ def simplotope_fixed_point(
     runs : the length of each simplotope in order.
     disc : The discretization to use. Fixed points will be approximated by the
         reciprocal this much. Since this function computes a homeomorphism to
-        the simplex, the distortion can be up to the number of simplicies.
-        Therefore if you want a true approximation discritization of `disc`,
+        the simplex, the distortion can be up to the number of simplices.
+        Therefore if you want a true approximation discretization of `disc`,
         you should specify `disc * runs.size`.
     """
+    if disc < 2:  # noqa: PLR2004
+        raise ValueError("discretization must be at least two")
+    elif np.any(runs < 1):
+        raise ValueError("every run must contain at least one element")
+    elif runs.sum() != init.size:
+        raise ValueError("runs must sum to the number of elements in init")
     gaps = np.insert(runs.cumsum(), 0, 0)
+    if np.any(init < 0) or np.any(
+        np.abs(1 - np.add.reduceat(init, gaps[:-1])) > _SIMPLEX_TOL
+    ):
+        raise ValueError("each simplex of init must be non-negative and sum to one")
 
     @njit(float64[:](float64[::1]))
     def simplotope_func(
@@ -68,7 +78,7 @@ def hypercube_fixed_point(
 
     This function maps the unit hypercube to the simplex, and in so doing
     distorts the space. The worst distortion is at the tip of the hypercube [1,
-    1, ..., 1] whic has O(d) distortion, so the discritization will be off by
+    1, ..., 1] which has O(d) distortion, so the discretization will be off by
     O(d) in that case.
 
     Note this homeomorphism is more efficient than using simplotope_fixed_point
@@ -83,8 +93,12 @@ def hypercube_fixed_point(
     disc : The discretization to use. Fixed points will be approximated by the
         reciprocal of this much. Note that due to distortion from the
         homeomorphism, this won't accurately reflect the approximation at all
-        areads of the hypercube.
+        areas of the hypercube.
     """
+    if disc < 2:  # noqa: PLR2004
+        raise ValueError("discretization must be at least two")
+    elif np.any(init < 0) or np.any(init > 1):
+        raise ValueError("init must lie in the unit hypercube [0, 1]")
 
     @njit(float64[:](float64[::1]))
     def simplex_func(
@@ -112,6 +126,10 @@ def simplex_fixed_point(
     disc : The discretization to use. Fixed points will be approximated by the
         reciprocal of this much.
     """
+    if disc < 2:  # noqa: PLR2004
+        raise ValueError("discretization must be at least two")
+    elif np.any(init < 0) or abs(1 - init.sum()) > _SIMPLEX_TOL:
+        raise ValueError("init must be a valid simplex (non-negative, summing to one)")
 
     @njit(int64(float64[::1]))
     def fixed_func(simp: NDArray[np.float64]) -> int:  # pragma: no cover
@@ -119,6 +137,25 @@ def simplex_fixed_point(
         return int(np.argmin((simp == 0) - simp + func(simp)))
 
     return labeled_subsimplex(fixed_func, init, disc)
+
+
+@njit(int64[:](float64[:], int64), cache=True)
+def discretize_mixture(
+    simp: NDArray[np.float64], k: int
+) -> NDArray[np.int64]:  # pragma: no cover
+    """Discretize a mixture.
+
+    The returned value has all integer components that sum to ``k`` with the
+    minimum total rounding error, i.e. it discretizes the mixture onto a
+    ``k``-resolution lattice. ``simp`` must already sum to one so that the number
+    of components rounded up is always in ``[0, simp.size)``. Ties in the
+    fractional remainder are broken by ascending index.
+    """
+    frac = simp * k
+    disc = np.floor(frac).astype(np.int64)
+    inds = np.argsort(disc - frac)[: k - disc.sum()]
+    disc[inds] += 1
+    return disc
 
 
 @njit
@@ -135,25 +172,23 @@ def labeled_subsimplex(  # noqa: PLR0912, PLR0915
 
     Parameters
     ----------
-    label_func : A proper lableing function. A labeling function takes an
+    label_func : A proper labeling function. A labeling function takes an
         element of the d-simplex and returns a label in [0, d). It is proper if
-        the label always coresponds to a dimension in support.
-    init : An initial guess for where the fully labeled element might be. This
-        will be projected onto the simplex if it is not already.
-    disc : The discretization to use. Fixed points will be approximated by the
-        reciprocal this much.
+        the label always corresponds to a dimension in the support.
+    init : The starting point on the d-simplex.
+    disc : The discretization to use. The returned point lies in a completely
+        labeled subsimplex whose vertices are within ``1 / disc`` of each other.
 
     Returns
     -------
-    ret : A discretized simplex with 1 coarser resolution (i.e. ret.sum() + 1
-        == init.sum()) that is fully labeled.
+    ret : A point on the d-simplex approximating a fixed point of ``label_func``.
 
     Notes
     -----
-    This is an implementation of the sandwhich method from [5]_ and [6]_
+    This is an implementation of the sandwich method from [1]_ and [2]_.
 
-    .. [5] Kuhn and Mackinnon 1975. Sandwich Method for Finding Fixed Points.
-    .. [6] Kuhn 1968. Simplicial Approximation Of Fixed Points.
+    .. [1] Kuhn and Mackinnon 1975. Sandwich Method for Finding Fixed Points.
+    .. [2] Kuhn 1968. Simplicial Approximation Of Fixed Points.
     """
     if disc < 2:  # noqa: PLR2004
         raise ValueError("discretization must be at least two")
@@ -161,8 +196,9 @@ def labeled_subsimplex(  # noqa: PLR0912, PLR0915
         raise ValueError("must start as a valid simplex")
 
     dim = init.size
-    # Base vertex of the subsimplex currently being used
-    dinit = discretize_mixture(init, disc)
+    # Base vertex of the subsimplex currently being used. init is normalized to
+    # sum to exactly one so the discretization rounds up a valid number of slots.
+    dinit = discretize_mixture(init / init.sum(), disc)
     base = np.append(dinit, 0)
     base[0] += 1
     # permutation array of [1,dim] where v0 = base,
@@ -181,10 +217,14 @@ def labeled_subsimplex(  # noqa: PLR0912, PLR0915
     while labels[index] < dim:
         # Find duplicate index. this is O(dim) but not a bottleneck
         current_label = labels[index]
+        found = False
         for ind in range(dim + 1):
             if ind != index and labels[ind] == current_label:
                 index = ind
+                found = True
                 break
+        if not found:
+            raise ValueError("labeling function was not proper (see help)")
 
         # Flip simplex over at index
         if index == 0:
@@ -237,18 +277,3 @@ def labeled_subsimplex(  # noqa: PLR0912, PLR0915
             count += 1
             mean += (current - mean) / count
     return mean[:-1] / disc
-
-
-@cfunc(int64[:](float64[:], int64))
-def discretize_mixture(
-    simp: NDArray[np.float64], k: int
-) -> NDArray[np.int64]:  # pragma: no cover
-    """Discretize a mixture.
-
-    The returned value will have all integer components that sum to k, with the
-    minimum error. Thus, discretizing the mixture.
-    """
-    disc = np.floor(simp * k).astype(np.int64)
-    inds = np.argsort(disc - simp * k)[: k - disc.sum()]
-    disc[inds] += 1
-    return disc

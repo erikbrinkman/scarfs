@@ -92,7 +92,7 @@ def test_rolltate() -> None:
     assert np.allclose(res, expected, atol=0.05)
 
 
-@cfunc(int64(float64[:]))
+@cfunc(int64(float64[::1]))
 def invalid(simp: np.ndarray) -> int:
     """Return an improper label that ignores some simplex vertices."""
     for i in range(simp.size):
@@ -101,7 +101,7 @@ def invalid(simp: np.ndarray) -> int:
     return 0
 
 
-@cfunc(int64(float64[:]))
+@cfunc(int64(float64[::1]))
 def valid(simp: np.ndarray) -> int:
     """Return a proper label for the first positive coordinate."""
     for i in range(simp.size):
@@ -120,3 +120,55 @@ def test_improper_label_function() -> None:
         labeled_subsimplex(valid, -start, 100)
     with pytest.raises(ValueError):
         labeled_subsimplex(valid, start, 1)
+
+
+@cfunc(float64[::1](float64[::1]))
+def to_vertex(simp: np.ndarray) -> np.ndarray:
+    """Map every point to the first vertex of the simplex."""
+    res = np.zeros_like(simp)
+    res[0] = 1.0
+    return res
+
+
+def test_disc_two_boundary() -> None:
+    """Test the solver runs at the minimum discretization of two."""
+    res = simplex_fixed_point(roll_func, np.full(3, 1 / 3), 2)
+    assert np.all(res >= 0)
+    assert np.isclose(res.sum(), 1)
+    assert np.allclose(res, 1 / 3, atol=0.01)
+
+
+def test_vertex_fixed_point() -> None:
+    """Test a fixed point that lies on a vertex of the simplex."""
+    res = simplex_fixed_point(to_vertex, np.full(4, 0.25), 50)
+    expected = np.zeros(4)
+    expected[0] = 1
+    assert np.allclose(res, expected, atol=0.05)
+
+
+def test_warm_start_refinement() -> None:
+    """Test that warm starting at a finer discretization refines the result."""
+    start = np.full(4, 0.25)
+    coarse = simplex_fixed_point(roll_func, start, 20)
+    fine = simplex_fixed_point(roll_func, coarse / coarse.sum(), 200)
+    assert np.max(np.abs(fine - 0.25)) < np.max(np.abs(coarse - 0.25))
+    assert np.allclose(fine, 0.25, atol=0.01)
+
+
+def test_invalid_inputs() -> None:
+    """Test that the public solvers reject malformed inputs."""
+    simplex = np.full(3, 1 / 3)
+    with pytest.raises(ValueError):
+        simplex_fixed_point(roll_func, simplex, 1)
+    with pytest.raises(ValueError):
+        simplex_fixed_point(roll_func, np.full(3, 1.0), 100)
+    with pytest.raises(ValueError):
+        hypercube_fixed_point(rotate, np.array([2.0, 0.0]), 100)
+    with pytest.raises(ValueError):
+        simplotope_fixed_point(rolltate, np.full(2, 0.5), np.array([0, 2]), 100)
+    with pytest.raises(ValueError):
+        simplotope_fixed_point(rolltate, simplex, np.array([2, 2]), 100)
+    with pytest.raises(ValueError):
+        simplotope_fixed_point(
+            rolltate, np.array([0.5, 0.5, 0.3, 0.3]), np.array([2, 2]), 100
+        )

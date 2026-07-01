@@ -5,14 +5,14 @@ from numba import cfunc, float64, int64, types
 from numpy.typing import NDArray
 
 
-@cfunc(float64[::1](float64[:], types.Array(int64, 1, "A", readonly=True)))
+@cfunc(float64[::1](float64[:], types.Array(int64, 1, "A", readonly=True)), cache=True)
 def add_reduceat(
     arr: NDArray[np.float64], inds: NDArray[np.int64]
 ) -> NDArray[np.float64]:
     """Compute a numba version of ``np.add.reduceat``.
 
     Note that this doesn't quite operate like reduceat, but accomplishes the
-    same thing for these call sites. In constrast to reduceat where you pass
+    same thing for these call sites. In contrast to reduceat where you pass
     the start of slices, here you pass the end.
     """
     res = np.zeros(inds.size)
@@ -29,7 +29,8 @@ def add_reduceat(
         float64[:],
         types.Array(int64, 1, "A", readonly=True),
         types.Array(int64, 1, "A", readonly=True),
-    )
+    ),
+    cache=True,
 )
 def simplotope_to_simplex(
     tope: NDArray[np.float64], runs: NDArray[np.int64], gaps: NDArray[np.int64]
@@ -66,7 +67,7 @@ def simplex_to_simplotope(
     return np.maximum(tope, 0)
 
 
-@cfunc(float64[:](float64[:]))
+@cfunc(float64[:](float64[:]), cache=True)
 def hypercube_to_simplex(hyper: NDArray[np.float64]) -> NDArray[np.float64]:
     """Map the unit hypercube to the simplex."""
     prop = np.max(hyper)
@@ -79,7 +80,7 @@ def hypercube_to_simplex(hyper: NDArray[np.float64]) -> NDArray[np.float64]:
     return simp
 
 
-@cfunc(float64[:](float64[:]))
+@cfunc(float64[:](float64[:]), cache=True)
 def simplex_to_hypercube(simp: NDArray[np.float64]) -> NDArray[np.float64]:
     """Map the simplex to the unit hypercube."""
     prop = 1 - simp[-1]
