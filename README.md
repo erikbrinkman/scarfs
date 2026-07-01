@@ -18,6 +18,7 @@ pip install scarfs
 Define the function you want to find a fixed point of using numba:
 
 ```python
+import numpy as np
 from numba import njit
 
 @njit
