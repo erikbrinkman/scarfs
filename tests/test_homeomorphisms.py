@@ -37,8 +37,8 @@ def test_known_hypercube_homeomorphisms() -> None:
         ([1, 1], [0.5, 0.5, 0]),
         ([1, 0, 0], [1, 0, 0, 0]),
     ]:
-        ahyper = np.array(hyper)
-        asimp = np.array(simp)
+        ahyper = np.array(hyper, "f8")
+        asimp = np.array(simp, "f8")
         assert np.allclose(hypercube_to_simplex(ahyper), asimp)
         assert np.allclose(simplex_to_hypercube(asimp), ahyper)
 

@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from numba import cfunc, float64, int64, njit
+from numba import float64, jit
 
 from scarfs import (
     hypercube_fixed_point,
@@ -12,7 +12,7 @@ from scarfs import (
 )
 
 
-@cfunc(float64[:](float64[:]))
+@jit(float64[::1](float64[::1]))
 def roll_func(simp: np.ndarray) -> np.ndarray:
     """Roll the simplex coordinates by one position."""
     return np.roll(simp, 1)
@@ -40,7 +40,7 @@ def test_rps_fixed_point(rng: np.random.Generator) -> None:
         [0, 0, 0, 1],
     )[:-1]
 
-    @njit(float64[:](float64[::1]))
+    @jit(float64[::1](float64[::1]))
     def func(inp: np.ndarray) -> np.ndarray:
         """Apply one step of the replicator dynamic."""
         inter = np.roll(inp, 1) - weights * np.roll(inp, -1)
@@ -55,7 +55,7 @@ _TRANS = np.array([0.5, 0.5])
 _ROT = np.array([[0, 1], [-1, 0]], float)
 
 
-@cfunc(float64[:](float64[:]))
+@jit(float64[::1](float64[::1]))
 def rotate(inp: np.ndarray) -> np.ndarray:
     """Rotate a point ninety degrees about the hypercube center."""
     return (inp - _TRANS) @ _ROT + _TRANS
@@ -70,7 +70,7 @@ def test_rotate(rng: np.random.Generator) -> None:
     assert np.allclose(res, 0.5, atol=0.05)
 
 
-@cfunc(float64[:](float64[:]))
+@jit(float64[::1](float64[::1]))
 def rolltate(inp: np.ndarray) -> np.ndarray:
     """Roll the first simplex and rotate the remaining simplotope factors."""
     res = np.empty(7)
@@ -92,37 +92,17 @@ def test_rolltate(rng: np.random.Generator) -> None:
     assert np.allclose(res, expected, atol=0.05)
 
 
-@cfunc(int64(float64[::1]))
-def invalid(simp: np.ndarray) -> int:
-    """Return an improper label that ignores some simplex vertices."""
-    for i in range(simp.size):
-        if simp[i] < 1e-3:  # noqa: PLR2004
-            return i
-    return 0
-
-
-@cfunc(int64(float64[::1]))
-def valid(simp: np.ndarray) -> int:
-    """Return a proper label for the first positive coordinate."""
-    for i in range(simp.size):
-        if simp[i] > 0:
-            return i
-    return 0
-
-
-def test_improper_label_function(rng: np.random.Generator) -> None:
-    """Test that improper label functions raise an error."""
+def test_labeled_subsimplex_rejects_bad_input(rng: np.random.Generator) -> None:
+    """Test that a non-simplex start or too coarse discretization raises."""
     start = rng.random(4)
     start /= start.sum()
     with pytest.raises(ValueError):
-        labeled_subsimplex(invalid, start, 100)
+        labeled_subsimplex(roll_func, -start, 100)
     with pytest.raises(ValueError):
-        labeled_subsimplex(valid, -start, 100)
-    with pytest.raises(ValueError):
-        labeled_subsimplex(valid, start, 1)
+        labeled_subsimplex(roll_func, start, 1)
 
 
-@cfunc(float64[::1](float64[::1]))
+@jit(float64[::1](float64[::1]))
 def to_vertex(simp: np.ndarray) -> np.ndarray:
     """Map every point to the first vertex of the simplex."""
     res = np.zeros_like(simp)
@@ -153,6 +133,13 @@ def test_warm_start_refinement() -> None:
     fine = simplex_fixed_point(roll_func, coarse / coarse.sum(), 200)
     assert np.max(np.abs(fine - 0.25)) < np.max(np.abs(coarse - 0.25))
     assert np.allclose(fine, 0.25, atol=0.01)
+
+
+def test_labeled_subsimplex_compiled_once() -> None:
+    """Test the solver compiles a single time regardless of the map passed."""
+    simplex_fixed_point(roll_func, np.full(3, 1 / 3), 10)
+    simplex_fixed_point(to_vertex, np.full(3, 1 / 3), 10)
+    assert len(labeled_subsimplex.signatures) == 1  # pyright: ignore[reportFunctionMemberAccess]
 
 
 def test_invalid_inputs() -> None:
