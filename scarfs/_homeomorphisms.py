@@ -1,11 +1,15 @@
 """Homeomorphisms between bounded spaces and the simplex."""
 
 import numpy as np
-from numba import cfunc, float64, int64, types
+from numba import float64, int64, jit, types
 from numpy.typing import NDArray
 
 
-@cfunc(float64[::1](float64[:], types.Array(int64, 1, "A", readonly=True)), cache=True)
+@jit(
+    float64[::1](float64[:], types.Array(int64, 1, "A", readonly=True)),
+    cache=True,
+    error_model="numpy",
+)
 def add_reduceat(
     arr: NDArray[np.float64], inds: NDArray[np.int64]
 ) -> NDArray[np.float64]:
@@ -24,13 +28,14 @@ def add_reduceat(
     return res
 
 
-@cfunc(
-    float64[:](
+@jit(
+    float64[::1](
         float64[:],
         types.Array(int64, 1, "A", readonly=True),
         types.Array(int64, 1, "A", readonly=True),
     ),
     cache=True,
+    error_model="numpy",
 )
 def simplotope_to_simplex(
     tope: NDArray[np.float64], runs: NDArray[np.int64], gaps: NDArray[np.int64]
@@ -47,12 +52,13 @@ def simplotope_to_simplex(
     return simp
 
 
-@cfunc(
-    float64[:](
+@jit(
+    float64[::1](
         float64[:],
         types.Array(int64, 1, "A", readonly=True),
         types.Array(int64, 1, "A", readonly=True),
-    )
+    ),
+    error_model="numpy",
 )
 def simplex_to_simplotope(
     simp: NDArray[np.float64], runs: NDArray[np.int64], gaps: NDArray[np.int64]
@@ -67,7 +73,7 @@ def simplex_to_simplotope(
     return np.maximum(tope, 0)
 
 
-@cfunc(float64[:](float64[:]), cache=True)
+@jit(float64[::1](float64[:]), cache=True, error_model="numpy")
 def hypercube_to_simplex(hyper: NDArray[np.float64]) -> NDArray[np.float64]:
     """Map the unit hypercube to the simplex."""
     prop = np.max(hyper)
@@ -80,7 +86,7 @@ def hypercube_to_simplex(hyper: NDArray[np.float64]) -> NDArray[np.float64]:
     return simp
 
 
-@cfunc(float64[:](float64[:]), cache=True)
+@jit(float64[::1](float64[:]), cache=True, error_model="numpy")
 def simplex_to_hypercube(simp: NDArray[np.float64]) -> NDArray[np.float64]:
     """Map the simplex to the unit hypercube."""
     prop = 1 - simp[-1]
