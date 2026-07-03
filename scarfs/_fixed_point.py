@@ -183,20 +183,16 @@ def _pivot(  # noqa: PLR0912, PLR0915
             if not (0 <= labels[index] < dim and new_vertex[labels[index]]):
                 raise ValueError("labeling function was not proper (see help)")
 
-    # Average out all vertices in simplex we care about
+    # The loop can only exit by pushing the final vertex onto layer two, so the
+    # completely labeled facet is the first dim vertices; average those.
+    if index != dim:
+        raise ValueError("pivot exited on an unexpected vertex, check labeling function")
     current = base
-    if index == 0:  # pragma: no cover
-        count = 0
-        mean = np.zeros(dim)
-    else:  # pragma: no cover
-        count = 1
-        mean = current.astype(np.float64)
-    for i, j in enumerate(perms, 1):
+    mean = current.astype(np.float64)
+    for count, j in enumerate(perms[:-1], 2):
         current[j] += 1
         current[j - 1] -= 1
-        if i != index:
-            count += 1
-            mean += (current - mean) / count
+        mean += (current - mean) / count
     return mean[:-1] / disc
 
 
@@ -253,7 +249,7 @@ def simplotope_fixed_point(
         runs) to itself.
     init : An initial guess for the fixed point. Since many may exist, the
         choice of starting point will affect the solution.
-    runs : the length of each simplotope in order.
+    runs : the number of elements in each simplex of the simplotope, in order.
     disc : The discretization to use. Fixed points will be approximated by the
         reciprocal this much. Since this function computes a homeomorphism to
         the simplex, the distortion can be up to the number of simplices.
