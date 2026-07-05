@@ -1,5 +1,7 @@
 __pycache__
+/.benchmarks
 /.coverage
+/.hypothesis
 /.pyre
 /.pytest_cache
 /.ruff_cache
