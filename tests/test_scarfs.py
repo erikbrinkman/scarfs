@@ -29,6 +29,29 @@ def test_roll(dim: int, rng: np.random.Generator) -> None:
     assert np.allclose(res, 1 / dim, atol=0.01)
 
 
+@jit(float64[:](float64[::1]))
+def roll_view(simp: np.ndarray) -> np.ndarray:
+    """Roll the simplex but return a non-contiguous view of the result.
+
+    The map's image is a strided view (``float64[:]``); the solver must read it
+    through its true strides rather than as if it were C-contiguous.
+    """
+    buf = np.empty(2 * simp.size)
+    buf[::2] = np.roll(simp, 1)
+    return buf[::2]
+
+
+@pytest.mark.parametrize("dim", [2, 3, 7])
+def test_roll_non_contiguous_image(dim: int, rng: np.random.Generator) -> None:
+    """Test a map that returns a non-contiguous view still converges."""
+    start = rng.random(dim)
+    start /= start.sum()
+    res = simplex_fixed_point(roll_view, start, 100)
+    assert np.all(res >= 0)
+    assert np.isclose(res.sum(), 1)
+    assert np.allclose(res, 1 / dim, atol=0.01)
+
+
 def test_rps_fixed_point(rng: np.random.Generator) -> None:
     """Test the fixed point of a rock-paper-scissors dynamic."""
     start = rng.random(3)

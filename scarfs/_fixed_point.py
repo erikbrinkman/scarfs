@@ -16,8 +16,11 @@ from ._homeomorphisms import (
 _SIMPLEX_TOL = 1e-6
 # The user's map is passed to the pivot routine as a first-class function so the routine
 # compiles a single time for every func and space, rather than recompiling the pivot (or a
-# captured relay) per distinct func.
-_SIMPLEX_MAP = types.FunctionType(float64[::1](float64[::1]))
+# captured relay) per distinct func. The image is typed with an unspecified layout
+# (``float64[:]``) on purpose: a map returning a non-contiguous view (e.g. ``simp[::-1]``)
+# would otherwise be read as if contiguous, silently corrupting the walk. The argument stays
+# C-contiguous since the points handed to the map always are.
+_SIMPLEX_MAP = types.FunctionType(float64[:](float64[::1]))
 
 
 @jit(int64[::1](float64[:], int64), cache=True, error_model="numpy")
@@ -130,7 +133,7 @@ def _pivot(  # noqa: PLR0912, PLR0915
     label_vertex = base[:-1].copy()
     # Last index moved
     index = dim
-    # Most recent created index, should be set to
+    # Scratch buffer holding the most recently created vertex.
     new_vertex = np.empty((dim + 1,), np.int64)
 
     while labels[index] < dim:
