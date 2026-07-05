@@ -27,7 +27,12 @@ def roll(simp: np.ndarray) -> np.ndarray:
 ```
 
 For performance reasons, this function must be compiled by numba as a cfunc or
-in nopython mode. Jitclass functions are currently not supported. The function
+in nopython mode. A bare `@njit` is the simplest accepted form; if you annotate
+an explicit signature, the argument must be a C-contiguous one-dimensional
+`float64` array (`float64[::1]`), while the return may have any layout — so
+`@jit(float64[::1](float64[::1]))` works, but a map whose *argument* is typed as
+non-contiguous (`float64[:]`) is rejected with a numba `TypeError`. Jitclass
+functions are currently not supported. The function
 must also lie in a bounded space, three default spaces are provided: the
 simplex, the simplotope, and the unit hypercube. If your bounded space is not
 one of these, you'll need to first compute a homeomorphism between your space
@@ -49,8 +54,9 @@ point (or a little larger for the other bounded spaces).
 Note that fixed points are difficult to approximate generally, so this may run
 for a very long time.
 
-Also note that this library "trusts" you, so if you pass in invalid inputs, you
-may get arcane errors.
+The public entry points validate the discretization and initial point and raise
+a descriptive `ValueError` on bad values, but the map itself is trusted: passing
+one with an incompatible signature surfaces as an arcane numba `TypeError`.
 
 ## Development
 
