@@ -124,7 +124,7 @@ jobs:
           uv sync --locked
       - name: Build site
         run: uv run --locked sphinx-build -M html docs out
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: "./out/html"
 
