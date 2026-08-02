@@ -1,14 +1,10 @@
 from collections.abc import Callable
-from typing import ParamSpec, TypeVar
-
-P = ParamSpec("P")
-R = TypeVar("R")
 
 class BenchmarkFixture:
-    def __call__(
+    def __call__[**P, R](
         self, func: Callable[P, R], /, *args: P.args, **kwargs: P.kwargs
     ) -> R: ...
-    def pedantic(
+    def pedantic[R](
         self,
         target: Callable[..., R],
         args: tuple[object, ...] = ...,
