@@ -21,6 +21,7 @@ Define the function you want to find a fixed point of using numba:
 import numpy as np
 from numba import njit
 
+
 @njit
 def roll(simp: np.ndarray) -> np.ndarray:
     return np.roll(simp, 1)
